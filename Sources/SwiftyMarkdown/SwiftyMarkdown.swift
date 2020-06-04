@@ -114,11 +114,21 @@ If that is not set, then the system default will be used.
 */
 @objc open class BasicStyles : NSObject, FontProperties {
 	public var fontName : String?
-	#if os(macOS)
-	public var color = NSColor.black
-	#else
-	public var color = UIColor.black
-	#endif
+    #if os(macOS)
+    public var color = NSColor.black
+    #else
+    public var color = UIColor.black
+    #endif
+    #if os(macOS)
+    public var background: NSColor? = nil
+    #else
+    public var background: UIColor? = nil
+    #endif
+    #if os(macOS)
+    public var underlineColor: NSColor? = nil
+    #else
+    public var underlineColor: UIColor? = nil
+    #endif
 	public var fontSize : CGFloat = 0.0
 	public var fontStyle : FontStyle = .normal
 }
@@ -434,6 +444,8 @@ extension SwiftyMarkdown {
 	
 	func attributedStringFor( tokens : [Token], in line : SwiftyLine ) -> NSAttributedString {
 		
+        let customURLAttributeKey = NSAttributedString.Key(rawValue: "url")
+        
 		var finalTokens = tokens
 		let finalAttributedString = NSMutableAttributedString()
 		var attributes : [NSAttributedString.Key : AnyObject] = [:]
@@ -539,9 +551,16 @@ extension SwiftyMarkdown {
 		
 		
 		for token in finalTokens {
-			attributes[.font] = self.font(for: line)
-			attributes[.link] = nil
+            var font = self.font(for: line)
+            if body.fontSize > 0 {
+                font = font.withSize(body.fontSize)
+            }
+            attributes[.font] = font
+            attributes[.underlineStyle] = nil
+            attributes[.underlineColor] = nil
+            attributes[.backgroundColor] = nil
 			attributes[.strikethroughStyle] = nil
+            attributes[customURLAttributeKey] = nil
 			attributes[.foregroundColor] = self.color(for: line)
 			guard let styles = token.characterStyles as? [CharacterStyle] else {
 				continue
@@ -551,24 +570,47 @@ extension SwiftyMarkdown {
 				attributes[.foregroundColor] = self.italic.color
 			}
 			if styles.contains(.bold) {
-				attributes[.font] = self.font(for: line, characterOverride: .bold)
-				attributes[.foregroundColor] = self.bold.color
-			}
+                var font = self.font(for: line, characterOverride: bold.fontStyle == .normal ? nil : .bold)
+                if bold.fontSize > 0 {
+                    font = font.withSize(bold.fontSize)
+                }
+                attributes[.font] = font
+				attributes[.foregroundColor] = bold.color
+
+                if let background = bold.background {
+                    attributes[.backgroundColor] = background
+                }
+            }
 			
 			if let linkIdx = styles.firstIndex(of: .link), linkIdx < token.metadataStrings.count {
-				attributes[.foregroundColor] = self.link.color
-				attributes[.font] = self.font(for: line, characterOverride: .link)
-				attributes[.link] = token.metadataStrings[linkIdx] as AnyObject
+                var font = self.font(for: line, characterOverride: .link)
+                if link.fontSize > 0 {
+                    font = font.withSize(link.fontSize)
+                }
+                attributes[.font] = font
+                attributes[.foregroundColor] = self.link.color
+                attributes[customURLAttributeKey] = token.metadataStrings[linkIdx] as AnyObject
 				
-				if underlineLinks {
-					attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue as AnyObject
+                if let underlineColor = link.underlineColor {
+                    attributes[.underlineColor] = underlineColor
+                    attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue as AnyObject
+                } else if underlineLinks {
+                    attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue as AnyObject
 				}
 			}
 						
 			if styles.contains(.strikethrough) {
-				attributes[.font] = self.font(for: line, characterOverride: .strikethrough)
+                var font = self.font(for: line, characterOverride: .strikethrough)
+                if strikethrough.fontSize > 0 {
+                    font = font.withSize(strikethrough.fontSize)
+                }
+				attributes[.font] = font
 				attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue as AnyObject
-				attributes[.foregroundColor] = self.strikethrough.color
+				attributes[.foregroundColor] = strikethrough.color
+                
+                if let background = strikethrough.background {
+                    attributes[.backgroundColor] = background
+                }
 			}
 			
 			#if !os(watchOS)
