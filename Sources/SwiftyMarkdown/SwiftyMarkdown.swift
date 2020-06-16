@@ -248,6 +248,8 @@ If that is not set, then the system default will be used.
 	public var bullet : String = "・"
 	
 	public var underlineLinks : Bool = false
+    
+    public var lineSpacing : CGFloat = 0
 	
 	public var frontMatterAttributes : [String : String] {
 		get {
@@ -562,6 +564,11 @@ extension SwiftyMarkdown {
 			attributes[.strikethroughStyle] = nil
             attributes[customURLAttributeKey] = nil
 			attributes[.foregroundColor] = self.color(for: line)
+            
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.lineSpacing = lineSpacing
+            attributes[.paragraphStyle] = paragraphStyle
+            
 			guard let styles = token.characterStyles as? [CharacterStyle] else {
 				continue
 			}
